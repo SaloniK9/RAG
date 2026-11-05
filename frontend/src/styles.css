@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  .eyebrow {
+    @apply text-[10px] font-bold tracking-[0.16em] text-slate-400;
+  }
+
+  .field-label {
+    @apply flex flex-col gap-1.5 text-xs font-semibold text-slate-600;
+  }
+
+  .control {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100;
+  }
+
+  .file-input {
+    @apply block w-full cursor-pointer rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-700;
+  }
+
+  .primary-button {
+    @apply rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
