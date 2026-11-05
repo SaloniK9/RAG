@@ -355,6 +355,24 @@ function App() {
                         <span className="rounded bg-slate-100 px-2 py-1">
                           {message.response.retrieval_strategy.toUpperCase()}
                         </span>
+                        <span className="rounded bg-slate-100 px-2 py-1">
+                          Model load{" "}
+                          {message.response.generation_profile.model_load_ms === null
+                            ? "n/a"
+                            : `${message.response.generation_profile.model_load_ms} ms`}
+                        </span>
+                        <span className="rounded bg-slate-100 px-2 py-1">
+                          Tokens in/out{" "}
+                          {message.response.generation_profile.prompt_tokens ?? "n/a"}/
+                          {message.response.generation_profile.output_tokens ?? "n/a"}
+                        </span>
+                        <span className="rounded bg-slate-100 px-2 py-1">
+                          {message.response.generation_profile.cold_start === null
+                            ? "Cold/warm n/a"
+                            : message.response.generation_profile.cold_start
+                              ? "Cold model load"
+                              : "Warm model"}
+                        </span>
                       </div>
                       {message.response.sources.map((source) => (
                         <details

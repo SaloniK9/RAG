@@ -181,13 +181,15 @@ def create_app(
 
         generation_started = time.perf_counter()
         try:
-            answer = model_client.generate(build_prompt(query, results))
+            generation = model_client.generate_profiled(
+                build_prompt(query, results)
+            )
         except OllamaUnavailableError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
         generation_latency_ms = (time.perf_counter() - generation_started) * 1000
 
         return {
-            "answer": answer,
+            "answer": generation.answer,
             "retrieval_strategy": request.retrieval_strategy,
             "models": {
                 "embedding": model_client.embedding_model
@@ -214,6 +216,7 @@ def create_app(
                 "generation": round(generation_latency_ms, 2),
                 "total": round(retrieval_latency_ms + generation_latency_ms, 2),
             },
+            "generation_profile": generation.profile,
         }
 
     return application

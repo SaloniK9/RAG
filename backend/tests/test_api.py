@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.embeddings.ollama import OllamaUnavailableError
+from app.embeddings.ollama import GenerationResult, OllamaUnavailableError
 from app.main import create_app
 
 
@@ -19,6 +19,18 @@ class FakeOllama:
     def generate(self, prompt):
         assert "10 MPa" in prompt
         return "The specified pressure is 10 MPa. [S1]"
+
+    def generate_profiled(self, prompt):
+        return GenerationResult(
+            answer=self.generate(prompt),
+            model=self.generation_model,
+            total_duration_ns=None,
+            load_duration_ns=None,
+            prompt_eval_count=None,
+            prompt_eval_duration_ns=None,
+            eval_count=None,
+            eval_duration_ns=None,
+        )
 
 
 def test_upload_bm25_chat_and_document_deletion(tmp_path: Path) -> None:
@@ -81,6 +93,18 @@ def test_dense_chat_generates_and_caches_model_embeddings(tmp_path: Path) -> Non
         def generate(self, prompt):
             return "The rated load is 5 kN. [S1]"
 
+        def generate_profiled(self, prompt):
+            return GenerationResult(
+                answer=self.generate(prompt),
+                model=self.generation_model,
+                total_duration_ns=1_000_000_000,
+                load_duration_ns=1_100_000_000,
+                prompt_eval_count=20,
+                prompt_eval_duration_ns=200_000_000,
+                eval_count=8,
+                eval_duration_ns=400_000_000,
+            )
+
     ollama = DenseOllama()
     client = TestClient(create_app(data_dir=tmp_path, ollama=ollama))
     client.post(
@@ -100,4 +124,7 @@ def test_dense_chat_generates_and_caches_model_embeddings(tmp_path: Path) -> Non
     assert first.status_code == second.status_code == 200
     assert first.json()["sources"][0]["content"] == "Rated load: 5 kN."
     assert first.json()["models"]["embedding"] == "nomic-embed-text"
+    assert first.json()["generation_profile"]["prompt_tokens"] == 20
+    assert first.json()["generation_profile"]["output_tokens"] == 8
+    assert first.json()["generation_profile"]["cold_start"] is True
     assert len(ollama.embed_calls) == 3

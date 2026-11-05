@@ -1,10 +1,53 @@
 import json
+from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+_COLD_MODEL_LOAD_THRESHOLD_NS = 1_000_000_000
 
 
 class OllamaUnavailableError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    answer: str
+    model: str
+    total_duration_ns: int | None
+    load_duration_ns: int | None
+    prompt_eval_count: int | None
+    prompt_eval_duration_ns: int | None
+    eval_count: int | None
+    eval_duration_ns: int | None
+
+    @property
+    def profile(self) -> dict[str, int | float | str | None]:
+        load_seconds = _duration_seconds(self.load_duration_ns)
+        prompt_seconds = _duration_seconds(self.prompt_eval_duration_ns)
+        generation_seconds = _duration_seconds(self.eval_duration_ns)
+        total_seconds = _duration_seconds(self.total_duration_ns)
+        return {
+            "model": self.model,
+            "model_load_ms": _milliseconds(load_seconds),
+            "prompt_eval_ms": _milliseconds(prompt_seconds),
+            "token_generation_ms": _milliseconds(generation_seconds),
+            "ollama_total_ms": _milliseconds(total_seconds),
+            "prompt_tokens": self.prompt_eval_count,
+            "output_tokens": self.eval_count,
+            "generation_tokens_per_second": (
+                round(self.eval_count / generation_seconds, 3)
+                if self.eval_count is not None
+                and generation_seconds is not None
+                and generation_seconds > 0
+                else None
+            ),
+            "cold_start": (
+                self.load_duration_ns >= _COLD_MODEL_LOAD_THRESHOLD_NS
+                if self.load_duration_ns is not None
+                else None
+            ),
+        }
 
 
 class OllamaClient:
@@ -50,6 +93,9 @@ class OllamaClient:
         return normalized
 
     def generate(self, prompt: str) -> str:
+        return self.generate_profiled(prompt).answer
+
+    def generate_profiled(self, prompt: str) -> GenerationResult:
         result = self._post(
             "/api/chat",
             {
@@ -62,7 +108,18 @@ class OllamaClient:
         answer = message.get("content") if isinstance(message, dict) else None
         if not isinstance(answer, str) or not answer.strip():
             raise OllamaUnavailableError("Ollama returned an empty answer.")
-        return answer.strip()
+        return GenerationResult(
+            answer=answer.strip(),
+            model=str(result.get("model", self.generation_model)),
+            total_duration_ns=_optional_int(result.get("total_duration")),
+            load_duration_ns=_optional_int(result.get("load_duration")),
+            prompt_eval_count=_optional_int(result.get("prompt_eval_count")),
+            prompt_eval_duration_ns=_optional_int(
+                result.get("prompt_eval_duration")
+            ),
+            eval_count=_optional_int(result.get("eval_count")),
+            eval_duration_ns=_optional_int(result.get("eval_duration")),
+        )
 
     def health(self) -> dict[str, object]:
         try:
@@ -112,3 +169,17 @@ class OllamaClient:
         if not isinstance(result, dict):
             raise OllamaUnavailableError("Ollama returned an invalid response.")
         return result
+
+
+def _optional_int(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _duration_seconds(value: int | None) -> float | None:
+    return value / 1_000_000_000 if value is not None else None
+
+
+def _milliseconds(value: float | None) -> float | None:
+    return round(value * 1000, 3) if value is not None else None

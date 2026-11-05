@@ -41,6 +41,17 @@ export interface ChatResponse {
     score: number;
   }[];
   timings_ms: { retrieval: number; generation: number; total: number };
+  generation_profile: {
+    model: string;
+    model_load_ms: number | null;
+    prompt_eval_ms: number | null;
+    token_generation_ms: number | null;
+    ollama_total_ms: number | null;
+    prompt_tokens: number | null;
+    output_tokens: number | null;
+    generation_tokens_per_second: number | null;
+    cold_start: boolean | null;
+  };
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

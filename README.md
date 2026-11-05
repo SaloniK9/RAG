@@ -18,6 +18,9 @@ generation over engineering documents. This repository currently implements
 - SQLite persistence for documents, chunks, and model-specific embeddings.
 - Document management, configurable chunking/retrieval, source display, and
   request timing in the chat dashboard.
+- Chat API responses expose Ollama's reported model-load, prompt-evaluation,
+  token-generation, prompt/output token-count, total-duration, and generation
+  throughput values when available.
 
 Dense vectors are generated and cached on the first dense query. BM25,
 document ingestion, and the app itself do not require Ollama. Actual answer
@@ -79,6 +82,19 @@ the application has no fake model path. The suite covers extraction, metadata
 preservation, chunking, exact engineering token retrieval, cosine ranking,
 document APIs, and explicit handling of unavailable Ollama.
 
+### Ollama generation profiling
+
+`POST /api/chat` returns `generation_profile` alongside end-to-end wall-clock
+timings. The profile includes Ollama's model load duration, prompt evaluation
+duration and token count, output evaluation duration and token count, reported
+total duration, and output tokens per second. It labels a request as a cold
+model load when Ollama reports a positive `load_duration`; otherwise it reports
+warm when the reported load is under one second, or `null` when Ollama does not
+provide that measurement. The one-second threshold separates the observed
+37-second model load from the 70-ms warm-request overhead. These
+model-reported durations are kept separate from API wall time. Costs are `null`
+because a local Ollama runtime does not provide billing data.
+
 ## Phase 1 limitations
 
 - Scanned PDFs need OCR; OCR is not included.
@@ -87,5 +103,8 @@ document APIs, and explicit handling of unavailable Ollama.
   indexing is deferred.
 - BM25 and dense are separately selectable; hybrid RRF and reranking are Phase 2.
 - Generation requires a running Ollama instance and the configured Qwen model.
+- Local Ollama does not provide API billing cost; cost is unavailable rather
+  than estimated. Cold-start status is based on Ollama's `load_duration`;
+  absent profiling fields remain null.
 - Advanced/Corrective/Graph RAG, evaluation/experiments, and the later dashboard
   pages are intentionally deferred to their specified phases.
